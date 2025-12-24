@@ -1,0 +1,21 @@
+                                                                      Table "public.tokens"
+      Column      |            Type             | Collation | Nullable |              Default               | Storage  | Compression | Stats target | Description 
+------------------+-----------------------------+-----------+----------+------------------------------------+----------+-------------+--------------+-------------
+ id               | integer                     |           | not null | nextval('tokens_id_seq'::regclass) | plain    |             |              | 
+ token            | character varying(255)      |           | not null |                                    | extended |             |              | 
+ user_id          | integer                     |           |          |                                    | plain    |             |              | 
+ permission_level | integer                     |           | not null |                                    | plain    |             |              | 
+ created_at       | timestamp without time zone |           |          | CURRENT_TIMESTAMP                  | plain    |             |              | 
+ expires_at       | timestamp without time zone |           | not null |                                    | plain    |             |              | 
+ ip_address       | inet                        |           |          |                                    | main     |             |              | 
+ user_agent       | text                        |           |          |                                    | extended |             |              | 
+Indexes:
+    "tokens_pkey" PRIMARY KEY, btree (id)
+    "idx_tokens_expires" btree (expires_at)
+    "idx_tokens_token" btree (token)
+    "idx_tokens_user" btree (user_id)
+    "tokens_token_key" UNIQUE CONSTRAINT, btree (token)
+Foreign-key constraints:
+    "tokens_user_id_fkey" FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+Access method: heap
+

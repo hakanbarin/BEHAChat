@@ -1,0 +1,19 @@
+                                                                   Table "public.session_logs"
+   Column   |            Type             | Collation | Nullable |                 Default                  | Storage  | Compression | Stats target | Description 
+------------+-----------------------------+-----------+----------+------------------------------------------+----------+-------------+--------------+-------------
+ id         | integer                     |           | not null | nextval('session_logs_id_seq'::regclass) | plain    |             |              | 
+ user_id    | integer                     |           |          |                                          | plain    |             |              | 
+ action     | character varying(100)      |           | not null |                                          | extended |             |              | 
+ details    | text                        |           |          |                                          | extended |             |              | 
+ ip_address | inet                        |           |          |                                          | main     |             |              | 
+ user_agent | text                        |           |          |                                          | extended |             |              | 
+ created_at | timestamp without time zone |           |          | CURRENT_TIMESTAMP                        | plain    |             |              | 
+Indexes:
+    "session_logs_pkey" PRIMARY KEY, btree (id)
+    "idx_logs_action" btree (action)
+    "idx_logs_created" btree (created_at)
+    "idx_logs_user" btree (user_id)
+Foreign-key constraints:
+    "session_logs_user_id_fkey" FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+Access method: heap
+

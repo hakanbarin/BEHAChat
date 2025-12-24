@@ -1,0 +1,417 @@
+syntax = "proto3";
+
+package auth.v1;
+
+// YETKİ SEVIYELERI ENUM'U
+// Farklı kullanıcı rollerine göre izinleri tanımlıyoruz
+// ADMIN (0): Tüm işlemleri yapabilir, sunucu kontrolü
+// MODERATOR (1): Chat moderasyonu, kullanıcı yönetimi
+// USER (2): Normal chat, temel işlemler
+// GUEST (3): Sadece okuma, yazma yok
+// BANNED (4): Hiç bir şey yapamaz, sunucuya erişim yok
+enum PermissionLevel {
+  ADMIN = 0;
+  MODERATOR = 1;
+  USER = 2;
+  GUEST = 3;
+  BANNED = 4;
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+//                         ANA AUTHENTICATION SERVİSİ
+// ═══════════════════════════════════════════════════════════════════════════
+service AuthService {
+  // Kullanıcı girişi
+  rpc Login (LoginRequest) returns (LoginResponse){}
+  
+  // Kullanıcı kaydı - Database'e kaydedilir
+  rpc Register (RegisterRequest) returns (RegisterResponse){}
+  
+  // Online/Offline durum stream'i - Gerçek zamanlı güncellemeler
+  // Client bu stream'e bağlanınca tüm kullanıcı durumlarını alır
+  // Sonra her değişiklikte güncellemeler gönderilir
+  rpc StreamUserStatus (UserStatusRequest) returns (stream UserStatusUpdate){}
+  
+  // Aktif kullanıcı sayısını al
+  rpc GetOnlineCount (OnlineCountRequest) returns (OnlineCountResponse){}
+  
+  // TÜM kullanıcıların online/offline durumunu al (herkes görebilir)
+  rpc GetAllUsersStatus (AllUsersStatusRequest) returns (AllUsersStatusResponse){}
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+//                         ADMİN YÖNETİM SERVİSİ
+// Admin yetkisi gerektiren tüm işlemler bu servis üzerinden yapılır
+// Her istek admin_token içermelidir (doğrulama için)
+// ═══════════════════════════════════════════════════════════════════════════
+service AdminService {
+  
+  // ─────────────────────────────────────────────────────────────────────────
+  // YETKİ YÖNETİMİ
+  // ─────────────────────────────────────────────────────────────────────────
+  
+  // Kullanıcının yetki seviyesini değiştir
+  // Sadece ADMIN yapabilir
+  rpc ChangeUserPermission (ChangePermissionRequest) returns (ChangePermissionResponse){}
+  
+  // Kullanıcıyı banla (BANNED yetkisi ata)
+  // ADMIN ve MODERATOR yapabilir
+  rpc BanUser (BanUserRequest) returns (BanUserResponse){}
+  
+  // Kullanıcının banını kaldır
+  // ADMIN ve MODERATOR yapabilir
+  rpc UnbanUser (UnbanUserRequest) returns (UnbanUserResponse){}
+  
+  // ─────────────────────────────────────────────────────────────────────────
+  // SUNUCU MESAJLARI
+  // ─────────────────────────────────────────────────────────────────────────
+  
+  // Tüm kullanıcılara mesaj yayınla (Broadcast)
+  // ADMIN ve MODERATOR yapabilir
+  rpc BroadcastMessage (BroadcastRequest) returns (BroadcastResponse){}
+  
+  // Belirli bir kullanıcıya özel mesaj gönder
+  // ADMIN ve MODERATOR yapabilir
+  rpc SendPrivateMessage (PrivateMessageRequest) returns (PrivateMessageResponse){}
+  
+  // ─────────────────────────────────────────────────────────────────────────
+  // KULLANICI BİLGİLERİ
+  // ─────────────────────────────────────────────────────────────────────────
+  
+  // Aktif kullanıcıları listele
+  // ADMIN ve MODERATOR yapabilir
+  rpc ListActiveUsers (ListUsersRequest) returns (ListUsersResponse){}
+  
+  // Belirli bir kullanıcının bilgilerini getir
+  // ADMIN ve MODERATOR yapabilir
+  rpc GetUserInfo (GetUserInfoRequest) returns (GetUserInfoResponse){}
+  
+  // ─────────────────────────────────────────────────────────────────────────
+  // OTURUM YÖNETİMİ
+  // ─────────────────────────────────────────────────────────────────────────
+  
+  // Kullanıcıyı zorla çıkış yaptır (Kick)
+  // ADMIN ve MODERATOR yapabilir
+  rpc KickUser (KickUserRequest) returns (KickUserResponse){}
+  
+  // Tüm oturumları sonlandır (Sunucu bakımı için)
+  // Sadece ADMIN yapabilir
+  rpc TerminateAllSessions (TerminateAllRequest) returns (TerminateAllResponse){}
+}
+
+// LOGIN İSTEĞİ
+// username: Kullanıcı adı
+// password: Şifre
+message LoginRequest {
+    string username = 1;
+    string password = 2;
+}
+
+// LOGIN CEVABI
+// success: Giriş başarılı mı?
+// error_message: Hata mesajı (başarısız olursa)
+// token: Oturum token'ı (güvenli iletişim için)
+// permission: Kullanıcının yetki seviyesi (giriş başarılı olursa)
+message LoginResponse {
+    bool success = 1;
+    string error_message = 2;
+    string token = 3;
+    PermissionLevel permission = 4; // YETKİ SEVİYESİ EKLENDI
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+//                         KAYIT (REGISTER) MESAJLARI
+// ═══════════════════════════════════════════════════════════════════════════
+
+// Kayıt isteği
+message RegisterRequest {
+    string username = 1; // Kullanıcı adı (benzersiz olmalı)
+    string password = 2; // Şifre
+    string email = 3; // E-posta (opsiyonel)
+}
+
+// Kayıt cevabı
+message RegisterResponse {
+    bool success = 1;
+    string message = 2;
+    string user_id = 3; // Oluşturulan kullanıcı ID'si
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+//                         KULLANICI DURUM MESAJLARI (STREAM)
+// ═══════════════════════════════════════════════════════════════════════════
+
+// Status stream isteği
+message UserStatusRequest {
+    string token = 1; // İstek yapan kullanıcının token'ı (opsiyonel)
+}
+
+// Status güncelleme mesajı
+message UserStatusUpdate {
+    string username = 1; // Kullanıcı adı
+    bool is_online = 2; // Online mi?
+    int32 total_online = 3; // Toplam online kullanıcı sayısı
+    string timestamp = 4; // Güncelleme zamanı
+}
+
+// Online sayı isteği
+message OnlineCountRequest {
+    // Boş - herhangi bir parametre gerektirmez
+}
+
+// Online sayı cevabı
+message OnlineCountResponse {
+    int32 online_count = 1; // Şu anda online olan kullanıcı sayısı
+    int32 total_registered = 2; // Toplam kayıtlı kullanıcı sayısı
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+//                         TÜM KULLANICILARIN DURUMU
+// ═══════════════════════════════════════════════════════════════════════════
+
+// Tüm kullanıcı durumları isteği
+message AllUsersStatusRequest {
+    string token = 1; // İsteği yapan kullanıcının token'ı (doğrulama için)
+}
+
+// Tek bir kullanıcının durum bilgisi
+message UserStatusInfo {
+    string username = 1;
+    bool is_online = 2;
+    PermissionLevel permission = 3;
+    string last_seen = 4; // Son görülme zamanı
+    string created_at = 5; // Kayıt tarihi
+    string email = 6; // E-posta (opsiyonel)
+}
+
+// Tüm kullanıcı durumları cevabı
+message AllUsersStatusResponse {
+    bool success = 1;
+    string message = 2;
+    repeated UserStatusInfo online_users = 3; // Online kullanıcılar
+    repeated UserStatusInfo offline_users = 4; // Offline kullanıcılar
+    int32 online_count = 5;
+    int32 offline_count = 6;
+    int32 total_count = 7;
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+//                         ADMİN İSTEK/CEVAP MESAJLARI
+// ═══════════════════════════════════════════════════════════════════════════
+
+// ─────────────────────────────────────────────────────────────────────────
+// YETKİ DEĞİŞTİRME
+// ─────────────────────────────────────────────────────────────────────────
+
+// Yetki değiştirme isteği
+message ChangePermissionRequest {
+    string admin_token = 1; // İşlemi yapan admin'in token'ı
+    string target_username = 2; // Yetkisi değiştirilecek kullanıcı
+    PermissionLevel new_permission = 3; // Yeni yetki seviyesi
+}
+
+// Yetki değiştirme cevabı
+message ChangePermissionResponse {
+    bool success = 1;
+    string message = 2;
+    PermissionLevel old_permission = 3; // Eski yetki (bilgi amaçlı)
+    PermissionLevel new_permission = 4; // Yeni yetki
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// KULLANICI BANLAMA
+// ─────────────────────────────────────────────────────────────────────────
+
+// Ban isteği
+message BanUserRequest {
+    string admin_token = 1; // İşlemi yapan admin/mod'un token'ı
+    string target_username = 2; // Banlanacak kullanıcı
+    string reason = 3; // Ban sebebi
+    int32 duration_minutes = 4; // Ban süresi (0 = kalıcı)
+}
+
+// Ban cevabı
+message BanUserResponse {
+    bool success = 1;
+    string message = 2;
+}
+
+// Unban isteği
+message UnbanUserRequest {
+    string admin_token = 1; // İşlemi yapan admin/mod'un token'ı
+    string target_username = 2; // Banı kaldırılacak kullanıcı
+}
+
+// Unban cevabı
+message UnbanUserResponse {
+    bool success = 1;
+    string message = 2;
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// SUNUCU MESAJLARI
+// ─────────────────────────────────────────────────────────────────────────
+
+// Broadcast mesaj isteği (tüm kullanıcılara)
+message BroadcastRequest {
+    string admin_token = 1; // İşlemi yapan admin/mod'un token'ı
+    string message = 2; // Yayınlanacak mesaj
+    bool is_system_message = 3; // Sistem mesajı mı? (farklı görünüm)
+}
+
+// Broadcast cevabı
+message BroadcastResponse {
+    bool success = 1;
+    string message = 2;
+    int32 recipients_count = 3; // Mesajı alan kullanıcı sayısı
+}
+
+// Özel mesaj isteği
+message PrivateMessageRequest {
+    string admin_token = 1; // İşlemi yapan admin/mod'un token'ı
+    string target_username = 2; // Mesaj gönderilecek kullanıcı
+    string message = 3; // Gönderilecek mesaj
+}
+
+// Özel mesaj cevabı
+message PrivateMessageResponse {
+    bool success = 1;
+    string message = 2;
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// KULLANICI LİSTELEME
+// ─────────────────────────────────────────────────────────────────────────
+
+// Online/Offline filtre enum'u
+enum OnlineOrOfflineCheck {
+    BOTH_OF_THEM = 0; // Hem online hem offline
+    ONLY_ONLINE = 1; // Sadece online
+    ONLY_OFFLINE = 2; // Sadece offline
+}
+
+// Aktif kullanıcı listeleme isteği
+message ListUsersRequest {
+    string admin_token = 1; // İşlemi yapan admin/mod'un token'ı
+    OnlineOrOfflineCheck online_or_offline = 2;
+    bool with_banned_person = 3;
+}
+
+// Kullanıcı bilgisi (liste için)
+message UserInfo {
+    string username = 1;
+    PermissionLevel permission = 2;
+    bool is_online = 3;
+    string last_activity = 4; // Son aktivite zamanı
+}
+
+// Kullanıcı listesi cevabı
+message ListUsersResponse {
+    bool success = 1;
+    string message = 2;
+    repeated UserInfo users = 3; // Kullanıcı listesi
+}
+
+// Tek kullanıcı bilgisi isteği
+message GetUserInfoRequest {
+    string admin_token = 1;
+    string target_username = 2;
+}
+
+// Tek kullanıcı bilgisi cevabı
+message GetUserInfoResponse {
+    bool success = 1;
+    string message = 2;
+    UserInfo user = 3;
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// OTURUM YÖNETİMİ
+// ─────────────────────────────────────────────────────────────────────────
+
+// Kick (zorla çıkış) isteği
+message KickUserRequest {
+    string admin_token = 1; // İşlemi yapan admin/mod'un token'ı
+    string target_username = 2; // Atılacak kullanıcı
+    string reason = 3; // Atılma sebebi
+}
+
+// Kick cevabı
+message KickUserResponse {
+    bool success = 1;
+    string message = 2;
+}
+
+// Tüm oturumları sonlandırma isteği
+message TerminateAllRequest {
+    string admin_token = 1; // Sadece ADMIN yapabilir
+    string reason = 2; // Sonlandırma sebebi (bakım vs.)
+}
+
+// Tüm oturumları sonlandırma cevabı
+message TerminateAllResponse {
+    bool success = 1;
+    string message = 2;
+    int32 terminated_count = 3; // Sonlandırılan oturum sayısı
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+//                         GERÇEK ZAMANLI CHAT SERVİSİ
+// Bidirectional streaming ile gerçek zamanlı mesajlaşma
+// ═══════════════════════════════════════════════════════════════════════════
+service ChatService {
+  // Gerçek zamanlı mesajlaşma - Bidirectional streaming
+  // Client mesaj gönderir, server tüm mesajları stream eder
+  rpc ChatStream (stream ChatMessage) returns (stream ChatMessage){}
+  
+  // Mesaj geçmişini al
+  rpc GetMessageHistory (MessageHistoryRequest) returns (MessageHistoryResponse){}
+  
+  // Özel mesaj gönder (kullanıcıdan kullanıcıya)
+  rpc SendPrivateMessage (UserPrivateMessageRequest) returns (UserPrivateMessageResponse){}
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+//                         CHAT MESAJLARI
+// ═══════════════════════════════════════════════════════════════════════════
+
+// Chat mesajı (gönderilen ve alınan)
+message ChatMessage {
+    string token = 1;              // Gönderen kullanıcının token'ı (gönderirken gerekli)
+    string username = 2;          // Gönderen kullanıcı adı
+    string message = 3;           // Mesaj içeriği
+    string timestamp = 4;         // Mesaj zamanı
+    PermissionLevel permission = 5; // Gönderenin yetki seviyesi
+    bool is_system = 6;           // Sistem mesajı mı?
+    bool is_private = 7;          // Özel mesaj mı?
+    string target_username = 8;   // Özel mesaj için hedef kullanıcı
+    int64 message_id = 9;         // Veritabanındaki mesaj ID'si
+}
+
+// Mesaj geçmişi isteği
+message MessageHistoryRequest {
+    string token = 1;             // İstek yapan kullanıcının token'ı
+    int32 limit = 2;              // Kaç mesaj getirilecek (varsayılan: 50)
+    int64 before_message_id = 3;  // Bu ID'den önceki mesajlar (pagination için)
+}
+
+// Mesaj geçmişi cevabı
+message MessageHistoryResponse {
+    bool success = 1;
+    string message = 2;
+    repeated ChatMessage messages = 3; // Mesaj listesi
+    int32 total_count = 4;        // Toplam mesaj sayısı
+}
+
+// Kullanıcıdan kullanıcıya özel mesaj isteği
+message UserPrivateMessageRequest {
+    string token = 1;             // Gönderen kullanıcının token'ı
+    string target_username = 2;    // Hedef kullanıcı adı
+    string message = 3;           // Mesaj içeriği
+}
+
+// Özel mesaj cevabı
+message UserPrivateMessageResponse {
+    bool success = 1;
+    string message = 2;
+}

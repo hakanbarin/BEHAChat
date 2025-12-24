@@ -1,0 +1,5 @@
+id,username,password_hash,permission_level,is_online,last_activity,created_at,updated_at
+3,test_user,$2a$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/LewY5hjLv5yzmC.gC,2,f,2025-12-19 14:34:03.225757,2025-12-19 14:34:03.225757,2025-12-19 14:34:03.225757
+2,moderator,$2a$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/LewY5hjLv5yzmC.gC,1,f,2025-12-19 14:34:03.225757,2025-12-19 14:34:03.225757,2025-12-19 14:34:03.225757
+1,admin,$2a$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/LewY5hjLv5yzmC.gC,0,f,2025-12-19 14:34:03.225757,2025-12-19 14:34:03.225757,2025-12-19 14:34:03.225757
+(3 rows)

@@ -1,0 +1,10 @@
+                                          List of relations
+ Schema |      Name      | Type  |  Owner   | Persistence | Access method |    Size    | Description 
+--------+----------------+-------+----------+-------------+---------------+------------+-------------
+ public | bans           | table | postgres | permanent   | heap          | 8192 bytes | 
+ public | schema_version | table | postgres | permanent   | heap          | 16 kB      | 
+ public | session_logs   | table | postgres | permanent   | heap          | 8192 bytes | 
+ public | tokens         | table | postgres | permanent   | heap          | 8192 bytes | 
+ public | users          | table | postgres | permanent   | heap          | 8192 bytes | 
+(5 rows)
+

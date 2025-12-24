@@ -1,0 +1,23 @@
+                                                                      Table "public.bans"
+      Column      |            Type             | Collation | Nullable |             Default              | Storage  | Compression | Stats target | Description 
+------------------+-----------------------------+-----------+----------+----------------------------------+----------+-------------+--------------+-------------
+ id               | integer                     |           | not null | nextval('bans_id_seq'::regclass) | plain    |             |              | 
+ user_id          | integer                     |           |          |                                  | plain    |             |              | 
+ banned_by_id     | integer                     |           |          |                                  | plain    |             |              | 
+ reason           | text                        |           | not null |                                  | extended |             |              | 
+ duration_minutes | integer                     |           |          | 0                                | plain    |             |              | 
+ banned_at        | timestamp without time zone |           |          | CURRENT_TIMESTAMP                | plain    |             |              | 
+ expires_at       | timestamp without time zone |           |          |                                  | plain    |             |              | 
+ is_active        | boolean                     |           |          | true                             | plain    |             |              | 
+Indexes:
+    "bans_pkey" PRIMARY KEY, btree (id)
+    "idx_bans_active" btree (is_active)
+    "idx_bans_expires" btree (expires_at)
+    "idx_bans_user" btree (user_id)
+Foreign-key constraints:
+    "bans_banned_by_id_fkey" FOREIGN KEY (banned_by_id) REFERENCES users(id) ON DELETE SET NULL
+    "bans_user_id_fkey" FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+Triggers:
+    check_ban_expiry_trigger BEFORE UPDATE ON bans FOR EACH ROW EXECUTE FUNCTION check_ban_expiry()
+Access method: heap
+

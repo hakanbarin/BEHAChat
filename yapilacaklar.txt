@@ -1,0 +1,13 @@
+-adminler için özel kayıt ve kişi yetkinlendirme. +
+
+-yapılabilirse arayüz. +
+
+-grup konuşması gibi bir şey -
+
+-kayit olusturma, adminlerin tüm kayıtları görmesi +
+
+-içine localde ya da serverda çalışacak bir ai koyulacak -
+
+-offline ve online ayrı görüntülenecek onu protodan kaldırdım düzeltcem +
+
+-isUserOnline fonksiyonu eklenecek +
